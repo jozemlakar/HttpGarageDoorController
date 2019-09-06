@@ -319,7 +319,7 @@ void GarageDoorController::_monitorInputs()
   this->LightState = (this->LightInput || this->LightRequested);
   this->switchLight(this->LightState);
 
-#ifdef LOG_LEVEL && LOG_LEVEL >= 3
+#if defined(LOG_LEVEL) && LOG_LEVEL >= 3
   char jsonStatus[256];
   this->getJsonStatus(jsonStatus, sizeof(jsonStatus));
   LOGPRINTLN_DEBUG(jsonStatus);
@@ -342,4 +342,3 @@ void GarageDoorController::_operateDoor(uint8_t pin, uint8_t cycles)
 
   this->DoorTimeLastOperated = millis();
 }
-

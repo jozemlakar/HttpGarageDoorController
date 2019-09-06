@@ -51,6 +51,15 @@ void mySocketBufferCallback(SOCKET sock, uint8 u8Msg, void *pvMsg)
 }
 #endif
 
+#ifdef ETHERNET
+WiFiHelper::WiFiHelper(const char *hostname, uint16_t connection_timeout)
+{
+  this->_hostname = hostname;
+  this->_connection_timeout = connection_timeout;
+
+  this->_reset();
+}
+#else
 WiFiHelper::WiFiHelper(const char *hostname, const char *ssid, const char *password, uint16_t connection_timeout)
 {
   this->_hostname = hostname;
@@ -60,6 +69,7 @@ WiFiHelper::WiFiHelper(const char *hostname, const char *ssid, const char *passw
 
   this->_reset();
 }
+#endif
 
 WiFiHelper::~WiFiHelper()
 {
@@ -70,16 +80,19 @@ void WiFiHelper::_reset()
   if (this->_led_enabled && !this->_led_blink_enabled) {
     digitalWrite(this->_led_pin, this->_led_off);
   }
-
+#ifndef ETHERNET
   this->connection_start = 0;
   this->connection_state = WFH_IDLE;
 
   this->rssi = 0;
+#endif
   this->_client_ip = (uint32_t)0;
   this->_gateway_ip = (uint32_t)0;
 
+#ifndef ETHERNET
   this->_bssid_ptr = NULL;
   memset(this->_bssid, 0, sizeof(this->_bssid));
+#endif
   memset(this->_mac_address, 0, sizeof(this->_mac_address));
 
 #ifdef WIFI_101
@@ -118,14 +131,23 @@ void WiFiHelper::enable_led(uint8_t led_pin, uint8_t led_on, uint8_t led_off, bo
 bool WiFiHelper::is_connected()
 {
   this->_led_blink();
+#ifdef ETHERNET
+  return ((Ethernet.linkStatus() != LinkOFF) && (Ethernet.localIP() != INADDR_NONE));
+#else
   return ((WiFi.status() == WL_CONNECTED) && (WiFi.localIP() != INADDR_NONE) && (this->connection_state == WFH_COMPLETE));
+#endif
 }
 
 bool WiFiHelper::is_connecting()
 {
+#ifdef ETHERNET
+  return ((Ethernet.linkStatus() != LinkOFF) || (Ethernet.localIP() == INADDR_NONE));
+#else
   return ((WiFi.status() == WL_IDLE_STATUS) || (WiFi.localIP() == INADDR_NONE) && !(this->connection_state == WFH_COMPLETE));
+#endif
 }
 
+#ifndef ETHERNET
 void WiFiHelper::disconnect()
 {
   WiFi.disconnect();
@@ -258,6 +280,7 @@ bool WiFiHelper::connect()
 
   return false;
 }
+#endif
 
 char *WiFiHelper::get_client_ip(char *dest, size_t dest_size)
 {

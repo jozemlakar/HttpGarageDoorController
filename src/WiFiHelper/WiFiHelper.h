@@ -7,6 +7,8 @@
 
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
+#elif defined(ETHERNET)
+  #include <Ethernet.h>
 #else
   #include <WiFi101.h>
 #endif
@@ -16,31 +18,37 @@
 class WiFiHelper
 {
   public:
+#ifdef ETHERNET
+    WiFiHelper(const char *hostname, uint16_t connection_timeout);
+#else
     WiFiHelper(const char *hostname, const char *ssid, const char *password, uint16_t connection_timeout);
+#endif
     ~WiFiHelper();
 
+#ifndef ETHERNET
     enum ConnectionState {
       WFH_IDLE,
       WFH_CONNECTING,
       WFH_ALLOCATION,
       WFH_COMPLETE
     };
-
     unsigned long connection_start;
     ConnectionState connection_state;
 
     int32_t rssi;
-
     bool connect();
     void disconnect();
-    bool is_connected();
+#endif
     bool is_connecting();
+    bool is_connected();
 
     char *get_client_ip(char *dest, size_t dest_size);
     char *get_gateway_ip(char *dest, size_t dest_size);
 
     char *get_mac(char *dest, size_t dest_size);
+#ifdef ETHERNET
     char *get_bssid(char *dest, size_t dest_size);
+#endif
 
     void enable_led(uint8_t led_pin, uint8_t led_on, uint8_t led_off, bool blink);
 
@@ -50,12 +58,16 @@ class WiFiHelper
 
   private:
     const char *_hostname;
+#ifdef ETHERNET
     const char *_ssid;
+#endif
     const char *_password;
     uint16_t _connection_timeout;
 
+#ifdef ETHERNET
     byte _bssid[6];
     byte *_bssid_ptr;
+#endif
     byte _mac_address[6];
     IPAddress _client_ip;
     IPAddress _gateway_ip;

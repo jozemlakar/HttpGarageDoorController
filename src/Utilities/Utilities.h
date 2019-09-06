@@ -8,7 +8,7 @@
 #endif
 
 // ERROR = 1, INFO = 2, DEBUG = 3, VERBOSE = 4, TRACE = 5
-#ifdef LOG_LEVEL && LOG_LEVEL >= 1
+#if defined(LOG_LEVEL) && LOG_LEVEL >= 1
   #define LOGPRINT_ERROR(...) Serial.print(__VA_ARGS__)
   #define LOGPRINTLN_ERROR(...) Serial.println(__VA_ARGS__ )
 #else

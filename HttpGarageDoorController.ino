@@ -28,36 +28,56 @@ SOFTWARE.
 // ARDUINO LIBRARIES
 #include <Arduino.h>
 
-#ifdef ESP8266
+#include "compile.h"
+
+#ifdef ETHERNET
+  #include <Ethernet.h>
+#endif
+
+#if defined(ESP8266) || defined(ETHERNET)
   #include <ArduinoOTA.h>
 #else
   #include <WiFi101OTA.h>
 #endif
 
-#include <WiFiClient.h>
-#include <WiFiServer.h>
 
+#ifdef ETHERNET
+  #include <EthernetClient.h>
+  #include <EthernetServer.h>
+#else
+  #include <WiFiClient.h>
+  #include <WiFiServer.h>
+#endif
 
 // INCLUDES
-#include "compile.h"
 #include "config.h"
 #include "secret.h"
 
 #include "GarageDoorController.h"
 GarageDoorController gController;
-
 #include "src/WiFiHelper/WiFiHelper.h"
 #include "src/HttpWebServer/HttpWebServer.h"
 
 #ifdef ENABLE_HTTP_SERVER_OAUTH_AUTH
-  #include <WiFiUdp.h>
-  WiFiUDP gUdp;
+  #ifdef ETHERNET
+    #include <EthernetUdp.h>
+    EthernetUDP gUdp;
+  #else
+    #include <WiFiUdp.h>
+    WiFiUDP gUdp;
+  #endif
 #endif
 
 
 // GLOBAL VARIABLES
-WiFiHelper gWiFiHelper(MDNS_NAME, WIFI_SSID, WIFI_PASSWORD, WIFI_CONNECTION_TIMEOUT);
-WiFiServer gServer(HTTP_SERVER_PORT);
+#ifdef ETHERNET
+  WiFiHelper gWiFiHelper(MDNS_NAME, WIFI_CONNECTION_TIMEOUT);
+  EthernetServer gServer(HTTP_SERVER_PORT);
+#else
+  WiFiHelper gWiFiHelper(MDNS_NAME, WIFI_SSID, WIFI_PASSWORD, WIFI_CONNECTION_TIMEOUT);
+  WiFiServer gServer(HTTP_SERVER_PORT);
+#endif
+
 HttpWebServer gHttpWebServer(gServer, HTTP_SERVER_PORT, HTTP_REQUEST_TIMEOUT, HTTP_REQUEST_BUFFER_SIZE);
 
 
@@ -92,7 +112,7 @@ void setup()
 bool connectWiFi()
 {
   LOGPRINTLN_TRACE("Entered connectWiFi()");
-
+#ifndef ETHERNET
   if (gWiFiHelper.is_connected()) {
     return true;
   }
@@ -100,14 +120,14 @@ bool connectWiFi()
   if (!gWiFiHelper.connect()) {
     return false;
   }
-
+#endif
   // Start OTA updater / mDNS responder
   LOGPRINT_INFO("Starting OTA updater / mDNS responder");
 
-#ifdef ESP8266
-  ArduinoOTA.setHostname(MDNS_NAME);
-  ArduinoOTA.setPassword(OTA_UPDATER_PASSWORD);
-  ArduinoOTA.begin();
+#if defined(ESP8266) || defined(ETHERNET)
+  //ArduinoOTA.setHostname(MDNS_NAME);
+  //ArduinoOTA.setPassword(OTA_UPDATER_PASSWORD);
+  //ArduinoOTA.begin();
 #else
 
   if (!WiFiOTA.begin(MDNS_NAME, OTA_UPDATER_PASSWORD, InternalStorage)) {
@@ -124,7 +144,7 @@ bool connectWiFi()
   LOGPRINTLN_INFO("started!");
 
 #ifdef ENABLE_HTTP_SERVER_OAUTH_AUTH
-  LOGPRINT_INFO("Initalising clock...");
+  LOGPRINT_INFO("Initalizing clock...");
 
   if (!gHttpWebServer.clock->update(true)) {
     LOGPRINTLN_INFO("failed!");
@@ -190,7 +210,7 @@ void loop()
     // Handle incoming mDNS/OTA requests
     LOGPRINTLN_TRACE("Calling WiFiOTA.poll()");
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ETHERNET)
     ArduinoOTA.handle();
 #else
     WiFiOTA.poll();
@@ -198,7 +218,11 @@ void loop()
 
     // Handle incoming HTTP/aREST requests
     LOGPRINTLN_TRACE("Calling gHttpWebServer.poll()");
+#ifdef ETHERNET
+    EthernetClient client = gServer.available();
+#else
     WiFiClient client = gServer.available();
+#endif
 
 #ifdef ESP8266
 
@@ -214,4 +238,3 @@ void loop()
     gHttpWebServer.poll(client, requestHandler);
   }
 }
-
