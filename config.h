@@ -10,12 +10,13 @@ const uint16_t DOOR_AUTO_CLOSE_TIME_SECONDS = 300;
 
 // GPIO Pins
 const uint8_t LED_OUTPUT_PIN = LED_BUILTIN;
-const uint8_t DOOR_OUTPUT_OPEN_PIN = 3;
+const uint8_t LIGHT_OUTPUT_PIN = 1;
+const uint8_t DOOR_OUTPUT_OPEN_PIN = 2;
 const uint8_t DOOR_OUTPUT_CLOSE_PIN = 3;
-const uint8_t LIGHT_OUTPUT_PIN = 2;
-const uint8_t LIGHT_INPUT_PIN = 1;
-const uint8_t SENSOR_OPEN_INPUT_PIN = 5;
-const uint8_t SENSOR_CLOSED_INPUT_PIN = 4;
+
+const uint8_t LIGHT_INPUT_PIN = 5;
+const uint8_t SENSOR_OPEN_INPUT_PIN = 6;
+const uint8_t SENSOR_CLOSED_INPUT_PIN = 7;
 
 // Network Config
 const uint16_t HTTP_SERVER_PORT = 80;

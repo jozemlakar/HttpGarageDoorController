@@ -29,7 +29,7 @@
 #include <Arduino.h>
 
 #include "compile.h"
-#include "MemoryFree.h"
+//#include "MemoryFree.h"
 
 #include <Ethernet.h>
 
@@ -114,6 +114,10 @@ void getJsonDeviceInfo(char *const jsonDeviceInfo, size_t jsonDeviceInfoSize)
 
 uint16_t requestHandler(Client &client, const char *requestMethod, const char *requestUrl)
 {
+  bool currentState = ((bool)digitalRead(LED_BUILTIN) == HIGH);
+
+  digitalWrite(LED_BUILTIN, (currentState ? LOW : HIGH));
+  
   if ((strcmp(requestMethod, "GET") == 0) && (strcasecmp(requestUrl, "/device") == 0)) {
     char jsonDeviceInfo[256];
     getJsonDeviceInfo(jsonDeviceInfo, sizeof(jsonDeviceInfo));

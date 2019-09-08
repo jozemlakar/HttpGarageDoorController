@@ -234,8 +234,8 @@ void HttpWebServer::send_response(Client &client, uint16_t status, const uint8_t
   LOGPRINTLN_DEBUG(head_buffer);
   client.write((uint8_t *)head_buffer, sizeof(head_buffer) - 1);
 
-  const char *body_format = "{\"r\":%d,\"s\":%s\"}";
-  char body_buffer[strlen(body_format) + (-2 + 3) + (-2 + strlen(success_string))];
+  const char *body_format = "{\"r\":%d,\"s\":%s}";
+  char body_buffer[strlen(body_format) + (-2 + 3) + (-2 + strlen(success_string) + 1)];
   sprintf(body_buffer, body_format, status, success_string);
   LOGPRINTLN_VERBOSE(body_buffer);
 

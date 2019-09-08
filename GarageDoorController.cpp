@@ -333,12 +333,10 @@ void GarageDoorController::_operateDoor(uint8_t pin, uint8_t cycles)
   for (uint8_t i = 0; i < cycles; i++) {
     if (i != 0) {
       delay(DOOR_OUTPUT_PULSE_DELAY_TIME);
-//      delay(1250);
     }
 
     digitalWrite(pin, HIGH);
     delay(DOOR_OUTPUT_PULSE_TIME);
-//    delay(400);
     digitalWrite(pin, LOW);
   }
 
