@@ -1,53 +1,40 @@
 /*
-MIT License
+  MIT License
 
-Copyright (c) 2017 Warren Ashcroft
+  Copyright (c) 2017 Warren Ashcroft
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 */
 
-#define CONTROLLER_MODEL "GARAGEDOOR"
-#define CONTROLLER_FIRMWARE_VERSION "2.0.0"
+//#define CONTROLLER_MODEL "GARAGEDOOR"
+//#define CONTROLLER_FIRMWARE_VERSION "2.0.0"
 
 // ARDUINO LIBRARIES
 #include <Arduino.h>
 
 #include "compile.h"
+#include "MemoryFree.h"
 
-#ifdef ETHERNET
-  #include <Ethernet.h>
-#endif
+#include <Ethernet.h>
 
-#if defined(ESP8266) || defined(ETHERNET)
-  #include <ArduinoOTA.h>
-#else
-  #include <WiFi101OTA.h>
-#endif
-
-
-#ifdef ETHERNET
-  #include <EthernetClient.h>
-  #include <EthernetServer.h>
-#else
-  #include <WiFiClient.h>
-  #include <WiFiServer.h>
-#endif
+//#include <EthernetClient.h>
+#include <EthernetServer.h>
 
 // INCLUDES
 #include "config.h"
@@ -55,31 +42,14 @@ SOFTWARE.
 
 #include "GarageDoorController.h"
 GarageDoorController gController;
-#include "src/WiFiHelper/WiFiHelper.h"
+#include "src/EthernetHelper/EthernetHelper.h"
 #include "src/HttpWebServer/HttpWebServer.h"
 
-#ifdef ENABLE_HTTP_SERVER_OAUTH_AUTH
-  #ifdef ETHERNET
-    #include <EthernetUdp.h>
-    EthernetUDP gUdp;
-  #else
-    #include <WiFiUdp.h>
-    WiFiUDP gUdp;
-  #endif
-#endif
-
-
 // GLOBAL VARIABLES
-#ifdef ETHERNET
-  WiFiHelper gWiFiHelper(MDNS_NAME, WIFI_CONNECTION_TIMEOUT);
-  EthernetServer gServer(HTTP_SERVER_PORT);
-#else
-  WiFiHelper gWiFiHelper(MDNS_NAME, WIFI_SSID, WIFI_PASSWORD, WIFI_CONNECTION_TIMEOUT);
-  WiFiServer gServer(HTTP_SERVER_PORT);
-#endif
+EthernetHelper gEthernetHelper = EthernetHelper();
+EthernetServer gServer(HTTP_SERVER_PORT);
 
-HttpWebServer gHttpWebServer(gServer, HTTP_SERVER_PORT, HTTP_REQUEST_TIMEOUT, HTTP_REQUEST_BUFFER_SIZE);
-
+HttpWebServer gHttpWebServer(gServer); // , HTTP_SERVER_PORT, HTTP_REQUEST_TIMEOUT, HTTP_REQUEST_BUFFER_SIZE
 
 // SETUP
 void setup()
@@ -90,99 +60,59 @@ void setup()
   // Open serial port for debug
   Serial.begin(115200);
   Serial.println("Started Serial Debug");
+  // Serial.println(freeMemory());
 #endif
 
-  LOGPRINTLN_TRACE("Entered setup()");
-  gWiFiHelper.enable_led(LED_BUILTIN, LED_BUILTIN_ON, LED_BUILTIN_OFF, false);
-
-#ifdef ENABLE_HTTP_SERVER_APIKEY_HEADER_AUTH
-  gHttpWebServer.enable_apikey_header_auth(HTTP_SERVER_APIKEY_HEADER);
-#endif
-
-#ifdef ENABLE_HTTP_SERVER_OAUTH_AUTH
-  gHttpWebServer.enable_oauth_auth(gUdp, HTTP_SERVER_OAUTH_CONSUMER_KEY, HTTP_SERVER_OAUTH_CONSUMER_SECRET, OAUTH_NONCE_SIZE, OAUTH_NONCE_HISTORY, OAUTH_TIMESTAMP_VALIDITY_WINDOW);
-#endif
+  LOGPRINTLN_TRACE("L0000");
+  gEthernetHelper.enable_led(LED_BUILTIN, LED_BUILTIN_ON, LED_BUILTIN_OFF, false);
 
   // Setup Controller
   gController.setup();
+  LOGPRINT_TRACE("L02 ");
+  // Serial.println(freeMemory());
 }
 
 
 // METHODS
-bool connectWiFi()
+bool connectNetwork()
 {
-  LOGPRINTLN_TRACE("Entered connectWiFi()");
-#ifndef ETHERNET
-  if (gWiFiHelper.is_connected()) {
+  if (gEthernetHelper.is_connected()) {
     return true;
   }
+  LOGPRINTLN_DEBUG(Ethernet.linkStatus() != LinkOFF);
+  LOGPRINTLN_DEBUG(Ethernet.localIP() != INADDR_NONE);
+  gHttpWebServer.stop();
 
-  if (!gWiFiHelper.connect()) {
+  LOGPRINTLN_DEBUG("L0004");
+  if (!gEthernetHelper.connect()) {
     return false;
   }
-#endif
-  // Start OTA updater / mDNS responder
-  LOGPRINT_INFO("Starting OTA updater / mDNS responder");
-
-#if defined(ESP8266) || defined(ETHERNET)
-  //ArduinoOTA.setHostname(MDNS_NAME);
-  //ArduinoOTA.setPassword(OTA_UPDATER_PASSWORD);
-  //ArduinoOTA.begin();
-#else
-
-  if (!WiFiOTA.begin(MDNS_NAME, OTA_UPDATER_PASSWORD, InternalStorage)) {
-    LOGPRINTLN_INFO("...failed!");
-  } else {
-    LOGPRINTLN_INFO("...started!");
-  }
-
-#endif
 
   // Start HTTP web server
-  LOGPRINT_INFO("Starting HTTP web server...");
+  LOGPRINTLN_DEBUG("L0005");
   gHttpWebServer.begin();
-  LOGPRINTLN_INFO("started!");
-
-#ifdef ENABLE_HTTP_SERVER_OAUTH_AUTH
-  LOGPRINT_INFO("Initalizing clock...");
-
-  if (!gHttpWebServer.clock->update(true)) {
-    LOGPRINTLN_INFO("failed!");
-  } else {
-    LOGPRINT_INFO("initalised at ");
-
-    char formattedTime[20];
-    gHttpWebServer.clock->get_formatted_time(gHttpWebServer.clock->now_utc(), formattedTime, sizeof(formattedTime));
-    LOGPRINT_INFO(formattedTime);
-    LOGPRINTLN_INFO(" UTC");
-  }
-
-#endif
+  LOGPRINTLN_DEBUG("L0006");
 }
 
 void getJsonDeviceInfo(char *const jsonDeviceInfo, size_t jsonDeviceInfoSize)
 {
-  LOGPRINTLN_VERBOSE("Entered getJsonDeviceInfo()");
+  LOGPRINTLN_VERBOSE("L0008");
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject &jsonRoot = jsonBuffer.createObject();
 
-  char mac[18] = {0};
-  gWiFiHelper.get_mac(mac, sizeof(mac));
-
   char ip[16] = {0};
-  gWiFiHelper.get_client_ip(ip, sizeof(ip));
+  gEthernetHelper.get_client_ip(ip, sizeof(ip));
 
-  jsonRoot["mdns"] = MDNS_NAME;
-  jsonRoot["name"] = FRIENDLY_NAME;
-  jsonRoot["model"] = CONTROLLER_MODEL;
-  jsonRoot["firmware"] = CONTROLLER_FIRMWARE_VERSION;
+  // jsonRoot["mdns"] = MDNS_NAME;
+  // jsonRoot["name"] = FRIENDLY_NAME;
+//  jsonRoot["model"] = CONTROLLER_MODEL;
+//  jsonRoot["firmware"] = CONTROLLER_FIRMWARE_VERSION;
   jsonRoot["ip"] = ip;
-  jsonRoot["mac"] = mac;
 
   jsonRoot.printTo(jsonDeviceInfo, jsonDeviceInfoSize);
 }
 
-uint16_t requestHandler(Client &client, const char *requestMethod, const char *requestUrl, HashMap<char *, char *, 24> &requestQuery)
+uint16_t requestHandler(Client &client, const char *requestMethod, const char *requestUrl)
 {
   if ((strcmp(requestMethod, "GET") == 0) && (strcasecmp(requestUrl, "/device") == 0)) {
     char jsonDeviceInfo[256];
@@ -190,51 +120,34 @@ uint16_t requestHandler(Client &client, const char *requestMethod, const char *r
     HttpWebServer::send_response(client, 200, (uint8_t *)jsonDeviceInfo, strlen(jsonDeviceInfo));
     return 0;
   }
-  
-  return gController.requestHandler(client, requestMethod, requestUrl, requestQuery);
+
+  return gController.requestHandler(client, requestMethod, requestUrl);
 }
 
 // MAIN LOOP
 void loop()
 {
-  LOGPRINTLN_TRACE("Entered loop()");
+  LOGPRINT_TRACE("L01 ");
+  // Serial.println(freeMemory());
 
-  // Check/reattempt connection to WiFi
-  LOGPRINTLN_TRACE("Calling connectWiFi()");
-  bool connected = connectWiFi();
-
+  // Check/reattempt connection
+  bool connected = connectNetwork();
+  LOGPRINT_TRACE("L09 ");
+  // Serial.println(freeMemory());
+  
   // Loop Controller
   gController.loop();
-
-  if (connected) {
-    // Handle incoming mDNS/OTA requests
-    LOGPRINTLN_TRACE("Calling WiFiOTA.poll()");
-
-#if defined(ESP8266) || defined(ETHERNET)
-    ArduinoOTA.handle();
-#else
-    WiFiOTA.poll();
-#endif
-
+  LOGPRINT_TRACE("L10 ");
+  // Serial.println(freeMemory());
+  
+  if (connected) {  
     // Handle incoming HTTP/aREST requests
-    LOGPRINTLN_TRACE("Calling gHttpWebServer.poll()");
-#ifdef ETHERNET
-    EthernetClient client = gServer.available();
-#else
-    WiFiClient client = gServer.available();
-#endif
-
-#ifdef ESP8266
-
-    if (client != NULL) {
-      LOGPRINT_INFO("\nAccepted new client connection from ");
-      LOGPRINT_INFO((IPAddress)client.remoteIP());
-      LOGPRINT_INFO(":");
-      LOGPRINTLN_INFO(client.remotePort());
-    }
-
-#endif
-
+    LOGPRINTLN_TRACE("L11 ");
+    // Serial.println(freeMemory());
+    EthernetClient client = gServer.available();  
+    // Serial.println(freeMemory());
     gHttpWebServer.poll(client, requestHandler);
+    LOGPRINT_TRACE("L12 ");
+    // Serial.println(freeMemory());
   }
 }

@@ -12,7 +12,6 @@
 #include "compile.h"
 #include "config.h"
 
-#include "src/HashMap.h"
 #include "src/Utilities/Utilities.h"
 #include "src/HttpWebServer/HttpWebServer.h"
 
@@ -49,7 +48,7 @@ class GarageDoorController
     void switchLight(bool state);
     void getJsonStatus(char *const dest, size_t destSize);
     char *stringFromDoorState(enum DoorState doorState);
-    uint16_t requestHandler(Client &client, const char *requestMethod, const char *requestUrl, HashMap<char *, char *, 24> &requestQuery);
+    uint16_t requestHandler(Client &client, const char *requestMethod, const char *requestUrl);
 
   private:
     Bounce *_sensorOpenDebouncer;
@@ -61,4 +60,3 @@ class GarageDoorController
 };
 
 #endif // GARAGEDOORCONTROLLER_H
-

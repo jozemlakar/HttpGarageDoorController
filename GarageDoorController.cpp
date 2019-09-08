@@ -62,19 +62,19 @@ void GarageDoorController::setup()
 void GarageDoorController::loop()
 {
   // Handle debouncing
-  LOGPRINTLN_TRACE("Calling _debouncers.update()");
+  LOGPRINTLN_TRACE("GDC01");
   this->_sensorOpenDebouncer->update();
   this->_sensorClosedDebouncer->update();
   this->_lightInputDebouncer->update();
 
   // Update states
-  LOGPRINTLN_TRACE("Calling _monitorInputs()");
+  LOGPRINTLN_TRACE("GDC02");
   this->_monitorInputs();
 }
 
 void GarageDoorController::operateDoor(bool state)
 {
-  LOGPRINTLN_VERBOSE("Entered operateDoor()");
+  LOGPRINTLN_TRACE("GDC03");
 
   uint8_t pin = 0;
   uint8_t cycles = 0;
@@ -124,7 +124,7 @@ void GarageDoorController::operateDoor(bool state)
   }
 
   if ((pin > 0) && (cycles > 0)) {
-    LOGPRINT_INFO("\nOUTPUT: Changing garage door state to: ");
+    LOGPRINT_INFO("\nO:d:");
     LOGPRINTLN_INFO(GarageDoorController::stringFromDoorState(this->DoorState));
     this->_operateDoor(pin, cycles);
   }
@@ -132,11 +132,11 @@ void GarageDoorController::operateDoor(bool state)
 
 void GarageDoorController::switchLight(bool state)
 {
-  LOGPRINTLN_VERBOSE("Entered switchLight()");
+  LOGPRINTLN_TRACE("GDC04");
   this->LightOutput = (bool)digitalRead(LIGHT_OUTPUT_PIN);
 
   if (this->LightOutput != state) {
-    LOGPRINT_INFO("\nOUTPUT: Changing garage light state to: ");
+    LOGPRINT_DEBUG("\nO:l:");
     LOGPRINTLN_INFO(state);
     digitalWrite(LIGHT_OUTPUT_PIN, state);
   }
@@ -144,26 +144,26 @@ void GarageDoorController::switchLight(bool state)
 
 void GarageDoorController::getJsonStatus(char *const dest, size_t destSize)
 {
-  LOGPRINTLN_VERBOSE("Entered getJsonStatus()");
+  LOGPRINTLN_VERBOSE("GDC05");
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject &jsonRoot = jsonBuffer.createObject();
 
   jsonRoot["result"] = 200;
   jsonRoot["success"] = true;
   jsonRoot["message"] = "OK";
-  jsonRoot["light-input"] = this->LightInput;
-  jsonRoot["light-requested"] = this->LightRequested;
-  jsonRoot["light-state"] = this->LightState;
-  jsonRoot["sensor-open"] = this->SensorOpen;
-  jsonRoot["sensor-closed"] = this->SensorClosed;
-  jsonRoot["door-state"] = GarageDoorController::stringFromDoorState(this->DoorState);
+  jsonRoot["l-i"] = this->LightInput;
+  jsonRoot["l-r"] = this->LightRequested;
+  jsonRoot["l-s"] = this->LightState;
+  jsonRoot["d-o"] = this->SensorOpen;
+  jsonRoot["d-c"] = this->SensorClosed;
+  jsonRoot["d-s"] = GarageDoorController::stringFromDoorState(this->DoorState);
 
   jsonRoot.printTo(dest, destSize);
 }
 
-uint16_t GarageDoorController::requestHandler(Client &client, const char *requestMethod, const char *requestUrl, HashMap<char *, char *, 24> &requestQuery)
+uint16_t GarageDoorController::requestHandler(Client &client, const char *requestMethod, const char *requestUrl)
 {
-  LOGPRINTLN_VERBOSE("Entered _requestHandler()");
+  LOGPRINTLN_VERBOSE("GDC06");
 
   if (strcmp(requestMethod, "GET") == 0) {
     if (strcasecmp(requestUrl, "/controller") == 0) {
@@ -211,38 +211,38 @@ uint16_t GarageDoorController::requestHandler(Client &client, const char *reques
 
 char *GarageDoorController::stringFromDoorState(enum DoorState doorState)
 {
-  LOGPRINTLN_TRACE("Entered stringFromDoorState()");
+  LOGPRINTLN_TRACE("GDC07");
 
   switch (doorState) {
     case DOORSTATE_OPEN:
-      return (char *)"open";
+      return (char *)"o";
 
     case DOORSTATE_CLOSED:
-      return (char *)"closed";
+      return (char *)"c";
 
     case DOORSTATE_OPENING:
-      return (char *)"opening";
+      return (char *)"oing";
 
     case DOORSTATE_CLOSING:
-      return (char *)"closing";
+      return (char *)"cing";
 
     case DOORSTATE_STOPPED_OPENING:
-      return (char *)"stopped-opening";
+      return (char *)"s-o";
 
     case DOORSTATE_STOPPED_CLOSING:
-      return (char *)"stopped-closing";
+      return (char *)"s-c";
 
     case DOORSTATE_UNKNOWN:
-      return (char *)"unknown";
+      return (char *)"u";
 
     default:
-      return (char *)"unknown";
+      return (char *)"u";
   }
 }
 
 void GarageDoorController::_monitorInputs()
 {
-  LOGPRINTLN_TRACE("Entered _monitorInputs()");
+  LOGPRINTLN_TRACE("GDC08");
 
   uint32_t timeNow = millis();
   static uint32_t lastCall = 0;
@@ -254,7 +254,7 @@ void GarageDoorController::_monitorInputs()
   lastCall = timeNow;
 
   // Check door sensor inputs
-  LOGPRINTLN_VERBOSE("Reading door sensor debouncers");
+  LOGPRINTLN_TRACE("GDC09");
   this->SensorOpen = !(bool)this->_sensorOpenDebouncer->read();
   this->SensorClosed = !(bool)this->_sensorClosedDebouncer->read();
 
@@ -294,7 +294,7 @@ void GarageDoorController::_monitorInputs()
     if (this->DoorState == DOORSTATE_OPEN) {
       if (this->DoorTimeOpenSince == 0) {
         this->DoorTimeOpenSince = timeNow;
-      } else if (DOOR_AUTO_CLOSE_TIME > 0 && (timeNow - this->DoorTimeOpenSince) >= DOOR_AUTO_CLOSE_TIME) {
+       } else if (DOOR_AUTO_CLOSE_TIME_SECONDS > 0 && (timeNow - this->DoorTimeOpenSince) >= DOOR_AUTO_CLOSE_TIME_SECONDS * 1000) {
         // Door was open, but should now be automatically closed
         operateDoor(false);
       }
@@ -314,12 +314,12 @@ void GarageDoorController::_monitorInputs()
   }
 
   // Check light inputs, output if necessary
-  LOGPRINTLN_VERBOSE("Reading light sensor debouncer");
+  LOGPRINTLN_TRACE("GDC10");
   this->LightInput = !(bool)this->_lightInputDebouncer->read();
   this->LightState = (this->LightInput || this->LightRequested);
   this->switchLight(this->LightState);
 
-#if defined(LOG_LEVEL) && LOG_LEVEL >= 3
+#if defined(LOG_LEVEL) && LOG_LEVEL >= 5
   char jsonStatus[256];
   this->getJsonStatus(jsonStatus, sizeof(jsonStatus));
   LOGPRINTLN_DEBUG(jsonStatus);
@@ -328,15 +328,17 @@ void GarageDoorController::_monitorInputs()
 
 void GarageDoorController::_operateDoor(uint8_t pin, uint8_t cycles)
 {
-  LOGPRINTLN_VERBOSE("Entered _operateDoor()");
+  LOGPRINTLN_VERBOSE("GDC10");
 
   for (uint8_t i = 0; i < cycles; i++) {
     if (i != 0) {
       delay(DOOR_OUTPUT_PULSE_DELAY_TIME);
+//      delay(1250);
     }
 
     digitalWrite(pin, HIGH);
     delay(DOOR_OUTPUT_PULSE_TIME);
+//    delay(400);
     digitalWrite(pin, LOW);
   }
 
